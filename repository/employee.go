@@ -50,7 +50,7 @@ func (d DefaultRepository) FindOrders(ctx context.Context, filter model.GetOrder
 			whereOrderCustomerNameContains(filter.CustomerName, ""),
 			whereOrderIDIn(employeeIDs, ""),
 			paginate(filter.PageRequest.PageNum, filter.PageRequest.PageSize)).
-		Order("created_at desc").Find(&shops).Error
+		Order("order_date desc").Find(&shops).Error
 	return shops, err
 }
 
@@ -65,7 +65,7 @@ func (d DefaultRepository) FindAllOrders(ctx context.Context, filter model.GetOr
 			whereOrderNameContains(filter.OrderName, ""),
 			whereOrderCustomerNameContains(filter.CustomerName, ""),
 			whereOrderIDIn(employeeIDs, "")).
-		Order("created_at desc").Find(&shops).Error
+		Order("order_date desc").Find(&shops).Error
 	return shops, err
 }
 
