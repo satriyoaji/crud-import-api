@@ -1,0 +1,52 @@
+version: '3.9'
+
+services:
+  api:
+    container_name: api_golang
+    build:
+      context: . # Use an image built from the specified dockerfile in the current directory.
+      dockerfile: ./Dockerfile
+    ports:
+      - "8081:3030"
+    volumes:
+      - .:/usr/src/app
+    depends_on:
+      - pg_db
+    networks:
+      - fullstack
+#    command: go run ./cmd/app/main.go -b 0.0.0.0
+  pg_db:
+    container_name: pg_db
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - DATABASE_HOST=${DB_HOST}
+    ports:
+      - '54321:5432'
+    networks:
+      - fullstack
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+#  pg_db_test:
+#    container_name: pg_db_test
+#    image: postgres:14
+#    environment:
+#      - POSTGRES_USER=${DB_USER_TEST}
+#      - POSTGRES_PASSWORD=${DB_PASSWORD_TEST}
+#      - POSTGRES_DB=${DB_NAME_TEST}
+#      - DATABASE_HOST=${DB_HOST_TEST}
+#    ports:
+#      - '54322:5432'
+#    networks:
+#      - fullstack
+#    volumes:
+#      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata: {}
+
+networks:
+  fullstack:
+    driver: bridge
