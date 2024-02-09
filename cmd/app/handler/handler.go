@@ -32,6 +32,7 @@ func RegisterHandlers(e *echo.Echo, h *Handler) {
 	e.GET("/orders", h.GetOrders)
 	e.GET("/orders/:id", h.GetOrderByID)
 	e.POST("/orders", h.AddOrder)
+	e.POST("/orders-bulk", h.BulkOrdersFromCSV)
 	e.PUT("/orders/:id", h.EditOrder)
 	e.DELETE("/orders/:id", h.DeleteOrderByID)
 

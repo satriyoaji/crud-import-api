@@ -20,6 +20,21 @@ func (h *Handler) GetOrders(ctx echo.Context) error {
 	return responseutil.SendErrorResponse(ctx, err)
 }
 
+func (h *Handler) BulkOrdersFromCSV(ctx echo.Context) error {
+	req := model.CSVUploadInput{}
+	if err := validator.BindAndValidate(ctx, &req); !err.IsNoError() {
+		return responseutil.SendErrorResponse(ctx, err)
+	}
+	//if err := ctx.Bind(&req); err != nil {
+	//	return responseutil.SendErrorResponse(ctx, pkgerror.ErrInvalidParams.WithError(err))
+	//}
+	ce := h.orderService.BulkOrdersFromCSV(ctx, req)
+	if ce.IsNoError() {
+		return responseutil.SendSuccessReponse(ctx, nil, nil)
+	}
+	return responseutil.SendErrorResponse(ctx, ce)
+}
+
 func (h *Handler) AddOrder(ctx echo.Context) error {
 	req := model.CreateOrderRequest{}
 	if err := validator.BindAndValidate(ctx, &req); !err.IsNoError() {

@@ -1,11 +1,14 @@
 package service
 
 import (
+	"encoding/csv"
 	"errors"
 	"fullstack_api_test/entity"
 	"fullstack_api_test/model"
 	"fullstack_api_test/repository"
+	"github.com/gocarina/gocsv"
 	"github.com/labstack/echo/v4"
+	"io"
 	"strings"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 type OrderService interface {
 	GetOrders(ctx echo.Context, filter model.GetOrdersFilter) (*[]model.GetOrdersResult, pkgerror.CustomError)
 	CreateOrder(ctx echo.Context, req model.CreateOrderRequest) (*model.CreateOrderResult, pkgerror.CustomError)
+	BulkOrdersFromCSV(ctx echo.Context, reqFile model.CSVUploadInput) pkgerror.CustomError
 	GetOrderByID(ctx echo.Context, req model.GetOrderByIDRequest) (*model.GetOrderByIDResult, pkgerror.CustomError)
 	EditOrder(ctx echo.Context, req model.EditOrderRequest) (*model.EditOrderResult, pkgerror.CustomError)
 	DeleteOrderByID(ctx echo.Context, req model.DeleteOrderByIDRequest) pkgerror.CustomError
@@ -60,6 +64,69 @@ func (s *OrderServiceImpl) GetOrderByID(ctx echo.Context, req model.GetOrderByID
 	result := model.GetOrderByIDResult{}
 	copyutil.Copy(&order, &result)
 	return &result, pkgerror.NoError
+}
+
+func (s *OrderServiceImpl) BulkOrdersFromCSV(ctx echo.Context, reqFile model.CSVUploadInput) pkgerror.CustomError {
+	rctx := ctx.Request().Context()
+
+	//f, err := os.OpenFile("orders_example_test.csv", os.O_RDWR|os.O_CREATE, os.ModePerm)
+	formFile, err := ctx.FormFile("file_csv")
+	if err != nil {
+		return pkgerror.ErrSystemError.WithError(err)
+	}
+	f, err := formFile.Open()
+	if err != nil {
+		return pkgerror.ErrSystemError.WithError(err)
+	}
+	defer f.Close()
+
+	fileBytes, err := io.ReadAll(f)
+	if err != nil {
+		return pkgerror.ErrSystemError.WithError(err)
+	}
+
+	gocsv.SetCSVReader(func(in io.Reader) gocsv.CSVReader {
+		r := csv.NewReader(in)
+		r.LazyQuotes = true
+		r.Comma = ';'
+		return r
+	})
+
+	var orders []*model.BulkInsertOrderRequestCSV
+	if err := gocsv.UnmarshalBytes(fileBytes, &orders); err != nil { // Load clients from file
+		return pkgerror.ErrSystemError.WithError(err)
+	}
+
+	txSuccess := false
+	err = s.repo.TxBegin()
+	if err != nil {
+		log.Error("Start db transaction error: ", err)
+		return pkgerror.ErrSystemError.WithError(err)
+	}
+	defer func() {
+		if r := recover(); r != nil || !txSuccess {
+			err = s.repo.TxRollback()
+			if err != nil {
+				log.Error("Rollback db transaction error: ", err)
+			}
+		}
+	}()
+
+	for _, order := range orders {
+		var orderEntity entity.Order
+		copyutil.Copy(&order, &orderEntity)
+		orderEntity.OrderName = strings.ToUpper(orderEntity.OrderName)
+		orderEntity.OrderDate = time.Now()
+		err = s.repo.CreateOrder(rctx, &orderEntity)
+		if err != nil {
+			log.Error("Create order error: ", err)
+			return pkgerror.ErrSystemError.WithError(err)
+		}
+	}
+	err = s.repo.TxCommit()
+	txSuccess = true
+
+	return pkgerror.NoError
 }
 
 func (s *OrderServiceImpl) CreateOrder(ctx echo.Context, req model.CreateOrderRequest) (*model.CreateOrderResult, pkgerror.CustomError) {
